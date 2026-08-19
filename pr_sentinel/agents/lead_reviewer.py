@@ -90,8 +90,9 @@ You must output a JSON object:
                         category="HALLUCINATED_FILE",
                         agent_name=iss.agent_name,
                         description=f"Agent hallucinated non-existent file '{iss.file_path}' not present in PR diff.",
-                        offending_pattern=iss.file_path,
-                        corrective_guideline=f"Only report issues in files actually present in the diff: {list(valid_file_paths)}",
+                        flawed_approach=f"❌ Flagging '{iss.title}' on file '{iss.file_path}' which does not exist in the diff.",
+                        positive_exemplar=f"✅ Inspect list of modified files first and only attribute findings to: {list(valid_file_paths)}.",
+                        corrective_rule="Only report issues for files explicitly listed in the modified diff context.",
                     )
                     continue
 

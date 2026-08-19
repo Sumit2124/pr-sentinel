@@ -322,7 +322,7 @@ app.add_typer(mistakes_app, name="mistakes")
 
 @mistakes_app.command("list")
 def list_mistakes():
-    """List all recorded mistakes, false positives, and learned rules."""
+    """List all recorded mistakes and their positive transformation exemplars."""
     from pr_sentinel.core.reflection_engine import mistake_memory
     records = mistake_memory.list_mistakes()
 
@@ -330,42 +330,44 @@ def list_mistakes():
         console.print("[green]✨ No mistakes recorded in memory yet. Agents are operating with base rubrics.[/]")
         return
 
-    table = Table(title="🧠 Learned Guardrails & Mistake Memory", show_header=True, header_style="bold purple")
+    table = Table(title="🧠 Learned (Negative ➔ Positive) Calibration Exemplars", show_header=True, header_style="bold purple")
     table.add_column("ID", width=8)
-    table.add_column("Category", width=18)
-    table.add_column("Agent", width=18)
-    table.add_column("Offending Pattern", width=25)
-    table.add_column("Corrective Guideline / Learned Rule")
+    table.add_column("Category & Agent", width=22)
+    table.add_column("❌ Negative (Flawed Decision to Avoid)", width=35)
+    table.add_column("✅ Positive (Correct Action to Take)", width=40)
+    table.add_column("💡 Golden Principle", width=30)
 
     for r in records:
         table.add_row(
             r.id,
-            f"[bold yellow]{r.category}[/]",
-            r.agent_name,
-            r.offending_pattern,
-            f"[bold green]{r.corrective_guideline}[/]\n[dim]{r.description}[/]",
+            f"[bold yellow]{r.category}[/]\n[cyan]{r.agent_name}[/]",
+            f"[red]{r.flawed_approach}[/]",
+            f"[green]{r.positive_exemplar}[/]",
+            f"[bold white]{r.corrective_rule}[/]",
         )
     console.print(table)
 
 
 @mistakes_app.command("teach")
 def teach_rule(
-    rule: str = typer.Option(..., "--rule", "-r", help="The corrective rule/guideline to teach the agents"),
-    pattern: str = typer.Option(..., "--pattern", "-p", help="The offending pattern or false positive to avoid"),
-    agent: str = typer.Option("ALL", "--agent", "-a", help="Agent to apply rule to (or 'ALL')"),
-    category: str = typer.Option("FALSE_POSITIVE", "--category", "-c", help="Category (FALSE_POSITIVE, CODE_SMELL, etc.)"),
+    flawed: str = typer.Option(..., "--flawed", "-f", help="❌ The flawed decision or false positive to avoid (Negative)"),
+    positive: str = typer.Option(..., "--positive", "-p", help="✅ The correct action or golden behavior to take (Positive)"),
+    rule: str = typer.Option(..., "--rule", "-r", help="💡 The generalized rule of thumb"),
+    agent: str = typer.Option("ALL", "--agent", "-a", help="Agent to calibrate (e.g. 'SecOps Sentinel', 'ALL')"),
+    category: str = typer.Option("FALSE_POSITIVE", "--category", "-c", help="Category (FALSE_POSITIVE, MALFORMED_PATCH, etc.)"),
 ):
-    """Teach the agents a new learned rule to prevent future false positives or repeated mistakes."""
+    """Teach the agents a new Negative ➔ Positive transformation exemplar."""
     from pr_sentinel.core.reflection_engine import mistake_memory
     record = mistake_memory.record_mistake(
         category=category,
         agent_name=agent,
-        description=f"User instructed rule: {rule}",
-        offending_pattern=pattern,
-        corrective_guideline=rule,
+        description=f"User taught calibration: {rule}",
+        flawed_approach=f"❌ {flawed}",
+        positive_exemplar=f"✅ {positive}",
+        corrective_rule=rule,
     )
-    console.print(f"[bold green]✅ Successfully recorded learned rule (ID: {record.id})![/]")
-    console.print(f"All agents will now strictly obey this rule during reviews.")
+    console.print(f"[bold green]✅ Successfully recorded (Negative ➔ Positive) Exemplar (ID: {record.id})![/]")
+    console.print(f"Agents will now use this case study as a few-shot exemplar during evaluations.")
 
 
 @mistakes_app.command("clear")

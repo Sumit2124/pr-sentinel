@@ -86,8 +86,9 @@ You must output a JSON object adhering to this schema:
                     category="MALFORMED_PATCH",
                     agent_name=self.name,
                     description="Generated patch without standard '--- a/' and '+++ b/' unified headers",
-                    offending_pattern="Patch missing --- a/ header",
-                    corrective_guideline="Always prepend unified headers '--- a/<filepath>' and '+++ b/<filepath>' to diffs",
+                    flawed_approach=f"❌ Outputting diff snippet for '{fpath}' without headers: `{udiff[:60]}...`",
+                    positive_exemplar=f"✅ Wrap with valid headers:\n```diff\n--- a/{fpath}\n+++ b/{fpath}\n{udiff}\n```",
+                    corrective_rule="Always prepend unified diff headers '--- a/<filepath>' and '+++ b/<filepath>' with valid line hunks.",
                 )
 
             patches.append(
