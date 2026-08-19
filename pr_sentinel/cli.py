@@ -315,3 +315,65 @@ index 0000000..e69de29
 +    display_report_rich(report)
 
 
+# Mistakes & Learned Guardrails Sub-Commands
+mistakes_app = typer.Typer(name="mistakes", help="🧠 Manage learned guardrails and mistake memory to prevent repeat errors")
+app.add_typer(mistakes_app, name="mistakes")
+
+
+@mistakes_app.command("list")
+def list_mistakes():
+    """List all recorded mistakes, false positives, and learned rules."""
+    from pr_sentinel.core.reflection_engine import mistake_memory
+    records = mistake_memory.list_mistakes()
+
+    if not records:
+        console.print("[green]✨ No mistakes recorded in memory yet. Agents are operating with base rubrics.[/]")
+        return
+
+    table = Table(title="🧠 Learned Guardrails & Mistake Memory", show_header=True, header_style="bold purple")
+    table.add_column("ID", width=8)
+    table.add_column("Category", width=18)
+    table.add_column("Agent", width=18)
+    table.add_column("Offending Pattern", width=25)
+    table.add_column("Corrective Guideline / Learned Rule")
+
+    for r in records:
+        table.add_row(
+            r.id,
+            f"[bold yellow]{r.category}[/]",
+            r.agent_name,
+            r.offending_pattern,
+            f"[bold green]{r.corrective_guideline}[/]\n[dim]{r.description}[/]",
+        )
+    console.print(table)
+
+
+@mistakes_app.command("teach")
+def teach_rule(
+    rule: str = typer.Option(..., "--rule", "-r", help="The corrective rule/guideline to teach the agents"),
+    pattern: str = typer.Option(..., "--pattern", "-p", help="The offending pattern or false positive to avoid"),
+    agent: str = typer.Option("ALL", "--agent", "-a", help="Agent to apply rule to (or 'ALL')"),
+    category: str = typer.Option("FALSE_POSITIVE", "--category", "-c", help="Category (FALSE_POSITIVE, CODE_SMELL, etc.)"),
+):
+    """Teach the agents a new learned rule to prevent future false positives or repeated mistakes."""
+    from pr_sentinel.core.reflection_engine import mistake_memory
+    record = mistake_memory.record_mistake(
+        category=category,
+        agent_name=agent,
+        description=f"User instructed rule: {rule}",
+        offending_pattern=pattern,
+        corrective_guideline=rule,
+    )
+    console.print(f"[bold green]✅ Successfully recorded learned rule (ID: {record.id})![/]")
+    console.print(f"All agents will now strictly obey this rule during reviews.")
+
+
+@mistakes_app.command("clear")
+def clear_mistakes():
+    """Clear all stored mistake memory."""
+    from pr_sentinel.core.reflection_engine import mistake_memory
+    mistake_memory.clear_memory()
+    console.print("[bold yellow]🧹 Mistake memory cleared.[/]")
+
+
+

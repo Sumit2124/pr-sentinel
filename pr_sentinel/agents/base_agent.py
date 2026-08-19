@@ -18,6 +18,14 @@ class BaseAgent(ABC):
         """Returns the specialized system prompt for the agent."""
         pass
 
+    def get_augmented_system_prompt(self) -> str:
+        """Combines the agent's core prompt with dynamic learned rules and past mistake guardrails."""
+        from pr_sentinel.core.reflection_engine import mistake_memory
+        learned_rules = mistake_memory.get_learned_guardrails(agent_name=self.name)
+        if learned_rules:
+            return f"{self.system_prompt}\n\n{learned_rules}"
+        return self.system_prompt
+
     @abstractmethod
     def review(self, diff_context: DiffContext) -> AgentReviewResult:
         """Executes the review over the provided diff context."""

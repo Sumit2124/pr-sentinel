@@ -66,20 +66,38 @@ You must output a JSON object adhering to this schema:
 
         data = self.llm.complete_structured(
             prompt=prompt,
-            system_prompt=self.system_prompt,
+            system_prompt=self.get_augmented_system_prompt(),
             mock_fallback=mock_fallback,
         )
 
         patches: List[SuggestedPatch] = []
+        from pr_sentinel.core.reflection_engine import mistake_memory
+
         for raw in data.get("patches", []):
+            fpath = raw.get("file_path", "unknown")
+            udiff = raw.get("unified_diff", "")
+
+            # Patch Self-Validation & Syntax Repair
+            if udiff and not udiff.startswith("--- "):
+                if not fpath in udiff and fpath != "unknown":
+                    udiff = f"--- a/{fpath}\n+++ b/{fpath}\n" + udiff
+                # Record the syntax mistake to memory to avoid repeating
+                mistake_memory.record_mistake(
+                    category="MALFORMED_PATCH",
+                    agent_name=self.name,
+                    description="Generated patch without standard '--- a/' and '+++ b/' unified headers",
+                    offending_pattern="Patch missing --- a/ header",
+                    corrective_guideline="Always prepend unified headers '--- a/<filepath>' and '+++ b/<filepath>' to diffs",
+                )
+
             patches.append(
                 SuggestedPatch(
-                    file_path=raw.get("file_path", "unknown"),
+                    file_path=fpath,
                     line_start=raw.get("line_start", 1),
                     line_end=raw.get("line_end", 1),
                     original_code=raw.get("original_code", ""),
                     fixed_code=raw.get("fixed_code", ""),
-                    unified_diff=raw.get("unified_diff", ""),
+                    unified_diff=udiff,
                     rationale=raw.get("rationale", "Automated bug fix"),
                     confidence_score=float(raw.get("confidence_score", 0.9)),
                 )

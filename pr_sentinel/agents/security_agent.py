@@ -51,7 +51,7 @@ If no security issues are found, return an empty "issues" list and a reassuring 
 
         data = self.llm.complete_structured(
             prompt=prompt,
-            system_prompt=self.system_prompt,
+            system_prompt=self.get_augmented_system_prompt(),
             mock_fallback=mock_fallback,
         )
 

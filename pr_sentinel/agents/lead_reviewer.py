@@ -63,11 +63,44 @@ You must output a JSON object:
 
         agent_results = [sec_res, qual_res, test_res]
 
-        # 2. Aggregate all detected issues
+        # 2. Aggregate and Sanitize detected issues (Self-Reflection Pass)
         all_issues: List[CodeIssue] = []
         all_issues.extend(sec_res.issues)
         all_issues.extend(qual_res.issues)
         all_issues.extend(test_res.issues)
+
+        from pr_sentinel.core.reflection_engine import mistake_memory
+
+        valid_file_paths = {f.target_file for f in diff_context.files}
+        valid_file_paths.update({f.source_file for f in diff_context.files})
+
+        sanitized_issues: List[CodeIssue] = []
+        seen_issue_keys = set()
+
+        for iss in all_issues:
+            # Self-Reflection: Filter hallucinated files if diff has known files
+            if valid_file_paths and iss.file_path not in valid_file_paths and iss.file_path != "unknown":
+                # Check if it's a basename match
+                matched = next((vf for vf in valid_file_paths if vf.endswith(iss.file_path) or iss.file_path.endswith(vf)), None)
+                if matched:
+                    iss.file_path = matched
+                else:
+                    # Record hallucination mistake
+                    mistake_memory.record_mistake(
+                        category="HALLUCINATED_FILE",
+                        agent_name=iss.agent_name,
+                        description=f"Agent hallucinated non-existent file '{iss.file_path}' not present in PR diff.",
+                        offending_pattern=iss.file_path,
+                        corrective_guideline=f"Only report issues in files actually present in the diff: {list(valid_file_paths)}",
+                    )
+                    continue
+
+            # Deduplication pass
+            issue_key = f"{iss.file_path}:{iss.line_start}:{iss.title.lower()}"
+            if issue_key in seen_issue_keys:
+                continue
+            seen_issue_keys.add(issue_key)
+            sanitized_issues.append(iss)
 
         # 3. Filter by severity threshold
         severity_rank = {
@@ -78,7 +111,7 @@ You must output a JSON object:
             Severity.CRITICAL: 4,
         }
         min_rank = severity_rank.get(settings.severity_threshold, 1)
-        filtered_issues = [i for i in all_issues if severity_rank.get(i.severity, 0) >= min_rank]
+        filtered_issues = [i for i in sanitized_issues if severity_rank.get(i.severity, 0) >= min_rank]
 
         # 4. Generate Auto-Fixes if enabled
         patches = []
@@ -108,7 +141,7 @@ You must output a JSON object:
 
         synthesis_data = self.llm.complete_structured(
             prompt=synth_prompt,
-            system_prompt=self.system_prompt,
+            system_prompt=self.get_augmented_system_prompt(),
             mock_fallback=mock_fallback,
         )
 
