@@ -1,0 +1,9 @@
+{
+  "id": "CASE_03_CLEAN_FEATURE",
+  "name": "Clean Feature with Type Annotations and Docstrings",
+  "diff": "diff --git a/app/math_utils.py b/app/math_utils.py\nnew file mode 100644\n--- /dev/null\n+++ b/app/math_utils.py\n@@ -0,0 +1,15 @@\n+from typing import Sequence\n+\n+def calculate_mean(values: Sequence[float]) -> float:\n+    \"\"\"Calculates the arithmetic mean of a sequence of numbers.\n+    \n+    Args:\n+        values: Sequence of floats\n+    Returns:\n+        Calculated arithmetic mean\n+    \"\"\"\n+    if not values:\n+        raise ValueError('Cannot calculate mean of empty sequence')\n+    return sum(values) / len(values)\n",
+  "expected": {
+    "min_issues": 0,
+    "expected_verdict": "APPROVE"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "id": "CASE_01_SQL_INJECTION",
+  "name": "SQL Injection & Secret Exposure",
+  "diff": "diff --git a/app/database.py b/app/database.py\nnew file mode 100644\n--- /dev/null\n+++ b/app/database.py\n@@ -0,0 +1,15 @@\n+import sqlite3\n+DB_PASSWORD = \"super_secret_db_pass_12345\"\n+\n+def find_user_by_email(email):\n+    db = sqlite3.connect('app.db')\n+    cur = db.cursor()\n+    # Vulnerable raw concatenation\n+    query = \"SELECT * FROM users WHERE email = '\" + email + \"'\"\n+    cur.execute(query)\n+    return cur.fetchone()\n",
+  "expected": {
+    "min_issues": 1,
+    "expected_categories": ["SECURITY"],
+    "expected_min_severity": "HIGH",
+    "expected_verdict": "REQUEST_CHANGES"
+  }
+}

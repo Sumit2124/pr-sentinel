@@ -1,0 +1,77 @@
+name: PR-Sentinel Autonomous Review & Auto-Fix Bot
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    # Run review on PR events, or when a user comments "/sentinel fix" or "/sentinel review" on a PR
+    if: github.event_name == 'pull_request' || (github.event.issue.pull_request && contains(github.event.comment.body, '/sentinel'))
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install PR-Sentinel
+        run: |
+          pip install --upgrade pip
+          pip install .
+
+      - name: Extract PR URL
+        id: pr_info
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "pr_url=${{ github.event.pull_request.html_url }}" >> $GITHUB_OUTPUT
+            echo "is_fix_command=false" >> $GITHUB_OUTPUT
+          else
+            echo "pr_url=${{ github.event.issue.html_url }}" >> $GITHUB_OUTPUT
+            if echo "${{ github.event.comment.body }}" | grep -q "/sentinel fix"; then
+              echo "is_fix_command=true" >> $GITHUB_OUTPUT
+            else
+              echo "is_fix_command=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Run Review or Auto-Fix
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LLM_MODEL: ${{ vars.LLM_MODEL || 'gemini/gemini-1.5-flash' }}
+        run: |
+          if [ "${{ steps.pr_info.outputs.is_fix_command }}" = "true" ]; then
+            echo "Executing Auto-Fix Patch Commit directly to PR branch..."
+            pr-sentinel bot-fix --pr "${{ steps.pr_info.outputs.pr_url }}"
+          else
+            echo "Executing Multi-Agent Swarm Review..."
+            pr-sentinel review \
+              --pr "${{ steps.pr_info.outputs.pr_url }}" \
+              --post-comment \
+              --output "pr_review_summary.md"
+          fi
+
+      - name: Upload Review Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pr-sentinel-review-report
+          path: pr_review_summary.md

@@ -1,0 +1,11 @@
+{
+  "id": "CASE_02_RESOURCE_LEAK",
+  "name": "Unclosed File Descriptor & Swallowed Exceptions",
+  "diff": "diff --git a/app/storage.py b/app/storage.py\nnew file mode 100644\n--- /dev/null\n+++ b/app/storage.py\n@@ -0,0 +1,14 @@\n+import os\n+\n+def read_logs_bad(filename):\n+    f = open(filename, 'r')\n+    data = f.read()\n+    # Missing f.close() or context manager\n+    try:\n+        parsed = [line.strip() for line in data.splitlines()]\n+        return parsed\n+    except:\n+        pass # Swallowed bare exception\n+    return None\n",
+  "expected": {
+    "min_issues": 1,
+    "expected_categories": ["CODE_QUALITY", "BUG_RISK"],
+    "expected_min_severity": "MEDIUM",
+    "expected_verdict": "COMMENT"
+  }
+}
