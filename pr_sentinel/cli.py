@@ -378,4 +378,56 @@ def clear_mistakes():
     console.print("[bold yellow]🧹 Mistake memory cleared.[/]")
 
 
+@app.command(name="skill-update")
+def skill_update(
+    skill_file: str = typer.Option(..., "--skill", "-s", help="Path to existing SKILL.md file to evolve"),
+    pr_url: Optional[str] = typer.Option(None, "--pr", help="GitHub PR URL whose resolutions should train the skill"),
+    diff_file: Optional[str] = typer.Option(None, "--diff-file", "-d", help="Path to raw diff/patch file of resolved changes"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help="Path to save updated SKILL.md (defaults to overwriting input)"),
+    model: Optional[str] = typer.Option(None, "--model", help="LLM model to use"),
+):
+    """Refactor and evolve an AI Agent SKILL.md file using resolved PR review lessons."""
+    from pr_sentinel.core.skill_updater import SkillUpdater
+
+    if not os.path.exists(skill_file):
+        console.print(f"[bold red]Error:[/] Skill file '{skill_file}' not found.")
+        raise typer.Exit(code=1)
+
+    with open(skill_file, "r", encoding="utf-8") as f:
+        skill_content = f.read()
+
+    git_provider = GitProvider()
+    if pr_url:
+        diff_ctx = git_provider.fetch_github_pr_diff(pr_url)
+    elif diff_file:
+        with open(diff_file, "r", encoding="utf-8") as f:
+            raw_diff = f.read()
+        diff_ctx = DiffParser.parse_diff(raw_diff)
+    else:
+        diff_ctx = git_provider.get_local_diff()
+
+    llm_client = LLMClient(model=model) if model else None
+    lead_agent = LeadReviewerAgent(llm_client=llm_client)
+    report = lead_agent.review_pr(diff_ctx)
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[bold cyan]{task.description}"),
+        transient=True,
+    ) as progress:
+        progress.add_task(description=f"Evolving skill instructions from {len(report.issues)} resolved issues...", total=None)
+        updater = SkillUpdater(llm_client=llm_client)
+        result = updater.update_skill_from_report(skill_content=skill_content, report=report, diff_context=diff_ctx)
+
+    console.print(Panel(result.get("summary_of_changes", "Skill updated with defensive rules."), title="⚡ Skill Evolution Summary", border_style="green"))
+    console.print(f"[bold cyan]Efficiency Impact:[/] {result.get('efficiency_gain_notes', 'Higher coding agent accuracy.')}")
+
+    target_path = output or skill_file
+    with open(target_path, "w", encoding="utf-8") as f:
+        f.write(result.get("updated_skill_content", skill_content))
+
+    console.print(f"\n[bold green]✅ Updated SKILL.md successfully saved to:[/] {target_path}")
+
+
+
 

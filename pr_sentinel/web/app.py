@@ -165,6 +165,7 @@ if run_button:
                 "🛠️ Auto-Fix Patches",
                 "🧪 Unit Tests",
                 "💬 Live Bot PR Comments",
+                "⚡ Skill Evolution (SKILL.md)",
                 "🤖 Agent Swarm Logs",
                 "🎓 Learned Calibration",
             ])
@@ -254,13 +255,39 @@ if run_button:
                             st.markdown(c["body"])
 
             with tabs[5]:
+                st.markdown("### ⚡ AI Agent Skill Evolution (`SKILL.md`)")
+                st.caption("Evolve and optimize your AI coding agent instructions using resolved review findings and patches.")
+                
+                default_skill_template = "# Python Backend Skill\n\n## Instructions\n- Build clean REST API endpoints.\n- Write modular database logic.\n"
+                input_skill = st.text_area("Paste Existing SKILL.md Content:", value=default_skill_template, height=180)
+                
+                if st.button("🔄 Auto-Evolve Skill from This Review", type="secondary"):
+                    from pr_sentinel.core.skill_updater import SkillUpdater
+                    with st.spinner("🧠 Synthesizing new defensive rules and verification guidelines into skill..."):
+                        updater = SkillUpdater(llm_client=llm_client)
+                        ev_res = updater.update_skill_from_report(skill_content=input_skill, report=report, diff_context=diff_ctx)
+                        
+                        st.success("✅ SKILL.md successfully evolved!")
+                        st.markdown(f"**Summary of Changes:**\n{ev_res.get('summary_of_changes', 'Added defensive rules.')}")
+                        st.info(f"**Efficiency Impact:** {ev_res.get('efficiency_gain_notes', 'Improves downstream agent accuracy.')}")
+                        
+                        st.markdown("#### Updated `SKILL.md` Content:")
+                        st.code(ev_res.get("updated_skill_content", input_skill), language="markdown")
+                        st.download_button(
+                            label="💾 Download Evolved SKILL.md",
+                            data=ev_res.get("updated_skill_content", input_skill),
+                            file_name="SKILL.md",
+                            mime="text/markdown",
+                        )
+
+            with tabs[6]:
                 for agent_res in report.agent_results:
                     st.markdown(f"### {agent_res.agent_name} (*{agent_res.agent_role}*)")
                     st.markdown(f"> {agent_res.summary}")
                     st.write(f"- Issues detected: {len(agent_res.issues)}")
                     st.markdown("---")
 
-            with tabs[6]:
+            with tabs[7]:
                 st.markdown("### 🧠 Learned (Negative ➔ Positive) Calibration Case Studies")
                 st.caption("These lessons are dynamically injected into agent prompts to eliminate repeat errors.")
                 from pr_sentinel.core.reflection_engine import mistake_memory
