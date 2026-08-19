@@ -149,13 +149,25 @@ if run_button:
                 st.markdown("### Executive Summary")
                 st.info(report.executive_summary)
                 
-                md_download = GitProvider.format_markdown_report(report)
-                st.download_button(
-                    label="📥 Download Review Markdown",
-                    data=md_download,
-                    file_name="pr_sentinel_review.md",
-                    mime="text/markdown",
-                )
+                bcol1, bcol2 = st.columns(2)
+                with bcol1:
+                    md_download = GitProvider.format_markdown_report(report)
+                    st.download_button(
+                        label="📥 Download Review Markdown",
+                        data=md_download,
+                        file_name="pr_sentinel_review.md",
+                        mime="text/markdown",
+                        use_container_width=True,
+                    )
+                with bcol2:
+                    agent_prompt_data = GitProvider.format_agent_rectification_prompt(report)
+                    st.download_button(
+                        label="🤖 Download Agent Fix Prompt (.md)",
+                        data=agent_prompt_data,
+                        file_name="agent_rectification.md",
+                        mime="text/markdown",
+                        use_container_width=True,
+                    )
 
             with tab2:
                 if not report.issues:

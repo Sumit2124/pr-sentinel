@@ -1,8 +1,10 @@
 import os
-import glob
+import shutil
+import tempfile
+import subprocess
 from typing import List, Optional, Set
 from pr_sentinel.core.models import DiffContext, FileDiff, DiffHunk, ChangeType
-from pr_sentinel.core.ast_analyzer import ASTAnalyzer
+from pr_sentinel.config import settings
 
 DEFAULT_IGNORED_DIRS: Set[str] = {
     ".git",
@@ -43,13 +45,14 @@ SUPPORTED_EXTENSIONS: Set[str] = {
 
 
 class RepoScanner:
-    """Recursively scans an entire repository directory and converts code files into structured review contexts."""
+    """Recursively scans local or remote repository codebases and converts them into structured review contexts."""
 
     @staticmethod
     def scan_directory(
         directory_path: str = ".",
         max_files: int = 50,
         file_types: Optional[List[str]] = None,
+        custom_title: Optional[str] = None,
     ) -> DiffContext:
         root_path = os.path.abspath(directory_path)
         files_to_review: List[FileDiff] = []
@@ -58,7 +61,6 @@ class RepoScanner:
         target_exts = set(file_types) if file_types else SUPPORTED_EXTENSIONS
 
         for dirpath, dirnames, filenames in os.walk(root_path):
-            # Prune ignored directories in-place
             dirnames[:] = [d for d in dirnames if d not in DEFAULT_IGNORED_DIRS and not d.startswith(".")]
 
             for fname in sorted(filenames):
@@ -84,7 +86,6 @@ class RepoScanner:
 
                 total_lines += len(lines)
 
-                # Construct a pseudo-hunk representing the entire file content for agent review
                 hunk_lines = [f"+{line}" for line in lines]
                 hunk = DiffHunk(
                     old_start=0,
@@ -110,12 +111,44 @@ class RepoScanner:
                     )
                 )
 
+        title = custom_title or f"Full Codebase Security & Architecture Audit ({os.path.basename(root_path)})"
+
         return DiffContext(
             files=files_to_review,
             total_added=total_lines,
             total_deleted=0,
             raw_diff="\n\n".join([f.raw_diff for f in files_to_review]),
             branch_name="FULL_REPO_AUDIT",
-            pr_title=f"Full Codebase Security & Architecture Audit ({os.path.basename(root_path)})",
-            pr_description=f"Automated full-repo scan containing {len(files_to_review)} source files and {total_lines} lines of code.",
+            pr_title=title,
+            pr_description=f"Automated scan containing {len(files_to_review)} source files and {total_lines} lines of code.",
         )
+
+    @staticmethod
+    def scan_remote_repo(
+        repo_url: str,
+        branch: Optional[str] = None,
+        max_files: int = 50,
+    ) -> DiffContext:
+        """Clones a remote GitHub/Git repository shallowly into a temporary directory and audits it."""
+        temp_dir = tempfile.mkdtemp(prefix="pr_sentinel_remote_")
+        try:
+            clone_cmd = ["git", "clone", "--depth", "1"]
+            if branch:
+                clone_cmd.extend(["--branch", branch])
+            
+            # Inject token into URL if authenticated
+            token = settings.github_token or os.environ.get("GITHUB_TOKEN")
+            authenticated_url = repo_url
+            if token and "github.com" in repo_url and not "@" in repo_url:
+                authenticated_url = repo_url.replace("https://", f"https://x-access-token:{token}@")
+
+            clone_cmd.extend([authenticated_url, temp_dir])
+
+            result = subprocess.run(clone_cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(f"Failed to clone remote repository: {result.stderr}")
+
+            title = f"Remote Audit: {repo_url}" + (f" (Branch: {branch})" if branch else "")
+            return RepoScanner.scan_directory(temp_dir, max_files=max_files, custom_title=title)
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)

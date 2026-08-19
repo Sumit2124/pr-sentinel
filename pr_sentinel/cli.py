@@ -107,7 +107,9 @@ def review(
     base: Optional[str] = typer.Option(None, "--base", help="Git base branch/ref to diff against (e.g. main)"),
     model: Optional[str] = typer.Option(None, "--model", help="LLM model (e.g. gemini/gemini-1.5-flash, gpt-4o)"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Save markdown report to file"),
+    agent_prompt: Optional[str] = typer.Option(None, "--agent-prompt", help="Save AI-Agent rectification plan prompt file (.md)"),
     post_comment: bool = typer.Option(False, "--post-comment", help="Post review comment to GitHub PR if --pr is provided"),
+    strict_gate: bool = typer.Option(False, "--strict-gate", "--fail-on-risk", help="Exit with code 1 if verdict is REQUEST_CHANGES (blocks PR merge in CI)"),
 ):
     """Run the multi-agent code review swarm over a Git diff or GitHub PR."""
     git_provider = GitProvider()
@@ -151,13 +153,25 @@ def review(
             f.write(md_content)
         console.print(f"\n[green]✅ Report successfully saved to:[/] {output}")
 
-    # 5. Post to GitHub PR if requested
+    # 5. Save Agent Rectification Prompt if requested
+    if agent_prompt:
+        prompt_content = GitProvider.format_agent_rectification_prompt(report)
+        with open(agent_prompt, "w", encoding="utf-8") as f:
+            f.write(prompt_content)
+        console.print(f"[green]🤖 AI Agent Rectification Prompt saved to:[/] {agent_prompt}")
+
+    # 6. Post to GitHub PR if requested
     if post_comment and pr_url:
         success = git_provider.post_github_pr_review(pr_url, report)
         if success:
             console.print("[bold green]✅ Review comment successfully posted to GitHub PR![/]")
         else:
             console.print("[bold red]❌ Failed to post comment to GitHub PR.[/]")
+
+    # 7. Strict CI Gate Enforcement
+    if strict_gate and report.verdict == PRVerdict.REQUEST_CHANGES:
+        console.print("\n[bold red]🚨 PR-Sentinel Gatekeeper FAILED:[/] High-risk issues detected. Merge blocked.")
+        raise typer.Exit(code=1)
 
 
 @app.command()
@@ -196,12 +210,15 @@ def fix(
 
 @app.command()
 def scan(
-    path: str = typer.Argument(".", help="Directory or repository root path to scan"),
+    path: str = typer.Argument(".", help="Directory path to scan (or ignored if --repo is used)"),
+    repo_url: Optional[str] = typer.Option(None, "--repo", "-r", help="Remote GitHub repository URL (e.g. https://github.com/owner/repo)"),
+    branch: Optional[str] = typer.Option(None, "--branch", "-b", help="Remote repository branch to audit (e.g. main, dev)"),
     max_files: int = typer.Option(50, "--max-files", "-m", help="Maximum number of files to audit"),
     model: Optional[str] = typer.Option(None, "--model", help="LLM model to use"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Save markdown audit report to file"),
+    agent_prompt: Optional[str] = typer.Option(None, "--agent-prompt", help="Save AI-Agent rectification plan prompt file (.md)"),
 ):
-    """Scan and audit an entire repository directory (AppSec, Code Smells, Architecture)."""
+    """Scan and audit an entire local directory or remote GitHub repository."""
     from pr_sentinel.core.repo_scanner import RepoScanner
 
     with Progress(
@@ -209,11 +226,15 @@ def scan(
         TextColumn("[bold cyan]{task.description}"),
         transient=True,
     ) as progress:
-        progress.add_task(description=f"Scanning repository files in '{path}'...", total=None)
-        diff_ctx = RepoScanner.scan_directory(directory_path=path, max_files=max_files)
+        if repo_url:
+            progress.add_task(description=f"Cloning & scanning remote repo '{repo_url}' (branch: {branch or 'default'})...", total=None)
+            diff_ctx = RepoScanner.scan_remote_repo(repo_url=repo_url, branch=branch, max_files=max_files)
+        else:
+            progress.add_task(description=f"Scanning local directory files in '{path}'...", total=None)
+            diff_ctx = RepoScanner.scan_directory(directory_path=path, max_files=max_files)
 
         if not diff_ctx.files:
-            console.print(f"[bold yellow]Notice:[/] No supported source files found in '{path}'.")
+            console.print(f"[bold yellow]Notice:[/] No supported source files found.")
             return
 
         progress.add_task(description=f"Running Multi-Agent Audit over {len(diff_ctx.files)} files ({diff_ctx.total_added} lines)...", total=None)
@@ -228,6 +249,13 @@ def scan(
         with open(output, "w", encoding="utf-8") as f:
             f.write(md_content)
         console.print(f"\n[green]✅ Full Codebase Audit successfully saved to:[/] {output}")
+
+    if agent_prompt:
+        prompt_content = GitProvider.format_agent_rectification_prompt(report)
+        with open(agent_prompt, "w", encoding="utf-8") as f:
+            f.write(prompt_content)
+        console.print(f"[green]🤖 AI Agent Rectification Prompt saved to:[/] {agent_prompt}")
+
 
 @app.command(name="bot-fix")
 def bot_fix(

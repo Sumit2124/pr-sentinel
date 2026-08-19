@@ -1,4 +1,4 @@
-name: PR-Sentinel Autonomous Review & Auto-Fix Bot
+name: PR-Sentinel Autonomous Review & Gatekeeper Bot
 
 on:
   pull_request:
@@ -12,8 +12,8 @@ permissions:
   issues: write
 
 jobs:
-  review:
-    # Run review on PR events, or when a user comments "/sentinel fix" or "/sentinel review" on a PR
+  review-and-gate:
+    name: "PR-Sentinel Security & Quality Gatekeeper"
     if: github.event_name == 'pull_request' || (github.event.issue.pull_request && contains(github.event.comment.body, '/sentinel'))
     runs-on: ubuntu-latest
 
@@ -35,7 +35,7 @@ jobs:
           pip install --upgrade pip
           pip install .
 
-      - name: Extract PR URL
+      - name: Extract PR Information
         id: pr_info
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -50,7 +50,7 @@ jobs:
             fi
           fi
 
-      - name: Run Review or Auto-Fix
+      - name: Run Multi-Agent Review or Auto-Fix Gate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -62,16 +62,20 @@ jobs:
             echo "Executing Auto-Fix Patch Commit directly to PR branch..."
             pr-sentinel bot-fix --pr "${{ steps.pr_info.outputs.pr_url }}"
           else
-            echo "Executing Multi-Agent Swarm Review..."
+            echo "Executing Multi-Agent Swarm Review & Gatekeeper Check..."
             pr-sentinel review \
               --pr "${{ steps.pr_info.outputs.pr_url }}" \
               --post-comment \
-              --output "pr_review_summary.md"
+              --output "pr_review_summary.md" \
+              --agent-prompt "agent_rectification.md" \
+              --strict-gate
           fi
 
-      - name: Upload Review Artifact
+      - name: Upload Review & Agent Prompt Artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: pr-sentinel-review-report
-          path: pr_review_summary.md
+          name: pr-sentinel-artifacts
+          path: |
+            pr_review_summary.md
+            agent_rectification.md

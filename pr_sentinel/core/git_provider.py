@@ -227,3 +227,57 @@ class GitProvider:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
+    @staticmethod
+    def format_agent_rectification_prompt(report: PRReviewReport) -> str:
+        """Formats the review findings into an actionable, structured prompt file for AI Coding Agents."""
+        lines = [
+            "# 🤖 AI Agent Rectification Plan",
+            "",
+            "> **Instructions for AI Coding Assistant (Cursor / Claude Code / Aider / Copilot / Antigravity)**:",
+            "> You are tasked with rectifying the following detected code issues and applying the necessary security and quality fixes.",
+            "",
+            "## 🎯 Objective",
+            f"Review Verdict: `{report.verdict.value}` | Risk Score: `{report.risk_score}/100` | Target Issues: `{len(report.issues)}`",
+            "",
+            "## 📋 Task List & Issues to Fix",
+        ]
+
+        for i, issue in enumerate(report.issues, 1):
+            lines.append(f"### Issue #{i}: {issue.title}")
+            lines.append(f"- **Target File**: `{issue.file_path}`")
+            lines.append(f"- **Line Number**: {issue.line_start}")
+            lines.append(f"- **Severity**: `{issue.severity.value}`")
+            lines.append(f"- **Category**: `{issue.category.value}`")
+            if issue.cwe_id:
+                lines.append(f"- **CWE ID**: `{issue.cwe_id}`")
+            lines.append(f"- **Root Cause**: {issue.description}")
+            lines.append(f"- **Fix Instructions**: {issue.suggestion}")
+            if issue.code_snippet:
+                lines.append(f"- **Vulnerable Snippet**:\n```\n{issue.code_snippet}\n```")
+            lines.append("")
+
+        if report.patches:
+            lines.append("## 🛠️ Reference Patches to Apply")
+            for j, patch in enumerate(report.patches, 1):
+                lines.append(f"#### Patch #{j} for `{patch.file_path}`")
+                lines.append(f"Rationale: {patch.rationale}")
+                lines.append(f"```diff\n{patch.unified_diff}\n```")
+                lines.append("")
+
+        if report.generated_tests:
+            lines.append("## 🧪 Required Unit & Regression Tests")
+            for k, test in enumerate(report.generated_tests, 1):
+                lines.append(f"#### Test File: `{test.test_file_path}`")
+                lines.append(f"Goal: {test.description}")
+                lines.append(f"```python\n{test.test_code}\n```")
+                lines.append("")
+
+        lines.append("## ✅ Verification Checklist for Agent")
+        lines.append("1. [ ] Apply the necessary fixes to all flagged files without introducing breaking changes.")
+        lines.append("2. [ ] Ensure all input validations and parameterized queries are strictly enforced.")
+        lines.append("3. [ ] Add the proposed unit tests to prevent future regression.")
+        lines.append("4. [ ] Run the test suite and verify that all tests pass cleanly.")
+
+        return "\n".join(lines)
+
+
