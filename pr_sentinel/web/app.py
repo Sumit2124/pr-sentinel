@@ -137,12 +137,13 @@ if run_button:
                 st.metric("Patches Generated", len(report.patches))
 
             # Tabs
-            tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
                 "📋 Summary",
                 "🔍 Detected Issues",
                 "🛠️ Auto-Fix Patches",
                 "🧪 Unit Tests",
                 "🤖 Agent Discussion",
+                "🎓 Learned Calibration",
             ])
 
             with tab1:
@@ -223,5 +224,19 @@ if run_button:
                     st.write(f"- Issues detected: {len(agent_res.issues)}")
                     st.markdown("---")
 
+            with tab6:
+                st.markdown("### 🧠 Learned (Negative ➔ Positive) Calibration Case Studies")
+                st.caption("These lessons are dynamically injected into agent prompts to eliminate repeat errors.")
+                from pr_sentinel.core.reflection_engine import mistake_memory
+                records = mistake_memory.list_mistakes()
+                if not records:
+                    st.info("No mistake records logged yet.")
+                else:
+                    for r in records:
+                        with st.expander(f"[{r.category}] {r.corrective_rule} ({r.agent_name})"):
+                            st.error(f"**❌ Negative (Flawed Decision to Avoid):**\n{r.flawed_approach}")
+                            st.success(f"**✅ Positive (Golden Action to Take):**\n{r.positive_exemplar}")
+
         except Exception as e:
             st.error(f"Error executing swarm review: {e}")
+
