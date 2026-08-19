@@ -1,0 +1,4 @@
+FROM ollama/ollama:latest
+
+# Custom Modelfile setting temperature and review persona
+RUN echo 'FROM qwen2.5-coder:7b\nPARAMETER temperature 0.2\nPARAMETER top_p 0.95\nPARAMETER num_ctx 16384' > /tmp/Modelfile
