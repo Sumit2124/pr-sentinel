@@ -100,6 +100,45 @@ class GitProvider:
         diff_ctx.pr_description = pr.body or ""
         return diff_ctx
 
+    def fetch_github_pr_comments(self, pr_url: str) -> List[Dict[str, Any]]:
+        """Fetches all existing review comments and bot discussion on a GitHub PR."""
+        import re
+        match = re.search(r"github\.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url)
+        if not match:
+            return []
+
+        owner, repo_name, pr_number = match.group(1), match.group(2), int(match.group(3))
+        token = settings.github_token or os.environ.get("GITHUB_TOKEN")
+        gh = Github(auth=Auth.Token(token)) if token else Github()
+        
+        try:
+            repo = gh.get_repo(f"{owner}/{repo_name}")
+            pr = repo.get_pull(pr_number)
+            comments = []
+
+            for c in pr.get_issue_comments():
+                comments.append({
+                    "id": c.id,
+                    "author": c.user.login,
+                    "created_at": c.created_at.strftime("%Y-%m-%d %H:%M:%S") if c.created_at else "",
+                    "body": c.body,
+                    "is_bot": "bot" in c.user.login.lower() or "sentinel" in c.body.lower(),
+                })
+
+            for rc in pr.get_review_comments():
+                comments.append({
+                    "id": rc.id,
+                    "author": rc.user.login,
+                    "created_at": rc.created_at.strftime("%Y-%m-%d %H:%M:%S") if rc.created_at else "",
+                    "body": f"**[{rc.path}:{rc.line or rc.original_line}]**\n{rc.body}",
+                    "is_bot": "bot" in rc.user.login.lower() or "sentinel" in rc.body.lower(),
+                })
+
+            return sorted(comments, key=lambda x: x["created_at"])
+        except Exception as e:
+            print(f"Warning: Failed to fetch PR comments: {e}")
+            return []
+
     def post_github_pr_review(self, pr_url: str, report: PRReviewReport) -> bool:
         """Posts review comments and summary back to a GitHub PR."""
         import re

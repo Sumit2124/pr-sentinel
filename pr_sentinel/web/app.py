@@ -9,14 +9,14 @@ from pr_sentinel.llm.client import LLMClient
 
 # Page configuration
 st.set_page_config(
-    page_title="PR-Sentinel | Multi-Agent Code Reviewer",
+    page_title="PR-Sentinel | Multi-Agent Code Reviewer & Gatekeeper",
     page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-st.title("🛡️ PR-Sentinel: Multi-Agent Code Reviewer & Auto-Fixer")
-st.caption("Autonomous AI agent swarm auditing security, quality, test coverage, and generating git patches.")
+st.title("🛡️ PR-Sentinel: Multi-Agent Code Reviewer & Gatekeeper")
+st.caption("Autonomous AI agent swarm auditing PRs, entire repositories, live GitHub bot discussions, and generating AI fix prompts.")
 
 # Sidebar Configuration
 with st.sidebar:
@@ -30,6 +30,7 @@ with st.sidebar:
             "gpt-4o-mini",
             "claude-3-5-sonnet-20240620",
             "ollama/qwen2.5-coder:7b",
+            "ollama/qwen2.5-coder:1.5b",
         ],
         index=0,
     )
@@ -52,9 +53,15 @@ with st.sidebar:
 
 # Input Section
 input_mode = st.radio(
-    "Select Scan Target:",
-    ["Paste Git Diff", "Sample Vulnerable Diff", "Full Local Repo / Folder", "GitHub PR URL"],
-    horizontal=True,
+    "Select Target Mode:",
+    [
+        "🐙 GitHub PR URL (Review & Live Comments)",
+        "🌐 Remote GitHub Repo & Branch Audit",
+        "📁 Full Local Repo / Folder Scan",
+        "📋 Paste Git Diff",
+        "🧪 Sample Vulnerable Diff",
+    ],
+    horizontal=False,
 )
 
 SAMPLE_DIFF = """diff --git a/app/api/auth.py b/app/api/auth.py
@@ -85,18 +92,28 @@ index 0000000..e69de29
 diff_text = ""
 pr_url = ""
 repo_dir = ""
+remote_repo_url = ""
+remote_branch = ""
+pr_existing_comments = []
 
-if input_mode == "Paste Git Diff":
-    diff_text = st.text_area("Paste Unified Git Diff:", height=200, placeholder="diff --git a/file.py b/file.py...")
-elif input_mode == "Sample Vulnerable Diff":
-    diff_text = st.text_area("Sample Diff:", value=SAMPLE_DIFF, height=200)
-elif input_mode == "Full Local Repo / Folder":
+if input_mode == "🐙 GitHub PR URL (Review & Live Comments)":
+    pr_url = st.text_input("GitHub Pull Request URL:", placeholder="https://github.com/owner/repo/pull/123")
+elif input_mode == "🌐 Remote GitHub Repo & Branch Audit":
+    rcol1, rcol2 = st.columns([3, 1])
+    with rcol1:
+        remote_repo_url = st.text_input("Remote GitHub Repository URL:", placeholder="https://github.com/owner/repo")
+    with rcol2:
+        remote_branch = st.text_input("Branch Name (e.g. main, dev, feature-1):", value="main")
+    max_scan_files = st.slider("Max source files to audit:", min_value=5, max_value=100, value=35)
+elif input_mode == "📁 Full Local Repo / Folder Scan":
     repo_dir = st.text_input("Local Directory Path to Audit:", value=".", help="Absolute or relative path to project directory")
     max_scan_files = st.slider("Max files to scan:", min_value=5, max_value=100, value=30)
+elif input_mode == "📋 Paste Git Diff":
+    diff_text = st.text_area("Paste Unified Git Diff:", height=200, placeholder="diff --git a/file.py b/file.py...")
 else:
-    pr_url = st.text_input("GitHub Pull Request URL:", placeholder="https://github.com/octocat/Hello-World/pull/123")
+    diff_text = st.text_area("Sample Diff:", value=SAMPLE_DIFF, height=200)
 
-run_button = st.button("🚀 Run Swarm Review", type="primary", use_container_width=True)
+run_button = st.button("🚀 Run Swarm Review & Audit", type="primary", use_container_width=True)
 
 if run_button:
     # Update settings dynamically
@@ -107,10 +124,15 @@ if run_button:
     llm_client = LLMClient(model=selected_model, api_key=api_key_input if api_key_input else None)
     git_provider = GitProvider()
 
-    with st.spinner("🤖 Multi-agent swarm is auditing code..."):
+    with st.spinner("🤖 Multi-agent swarm is auditing code and analyzing discussions..."):
         try:
             if pr_url:
                 diff_ctx = git_provider.fetch_github_pr_diff(pr_url)
+                # Fetch existing live comments from GitHub PR
+                pr_existing_comments = git_provider.fetch_github_pr_comments(pr_url)
+            elif remote_repo_url:
+                from pr_sentinel.core.repo_scanner import RepoScanner
+                diff_ctx = RepoScanner.scan_remote_repo(repo_url=remote_repo_url, branch=remote_branch, max_files=max_scan_files)
             elif repo_dir:
                 from pr_sentinel.core.repo_scanner import RepoScanner
                 diff_ctx = RepoScanner.scan_directory(directory_path=repo_dir, max_files=max_scan_files)
@@ -128,7 +150,7 @@ if run_button:
                     PRVerdict.COMMENT: "orange",
                     PRVerdict.REQUEST_CHANGES: "red",
                 }.get(report.verdict, "blue")
-                st.metric("Verdict", report.verdict.value)
+                st.metric("Gatekeeper Verdict", report.verdict.value)
             with col2:
                 st.metric("Risk Score", f"{report.risk_score}/100")
             with col3:
@@ -137,16 +159,17 @@ if run_button:
                 st.metric("Patches Generated", len(report.patches))
 
             # Tabs
-            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-                "📋 Summary",
+            tabs = st.tabs([
+                "📋 Executive Summary & Fix Plan",
                 "🔍 Detected Issues",
                 "🛠️ Auto-Fix Patches",
                 "🧪 Unit Tests",
-                "🤖 Agent Discussion",
+                "💬 Live Bot PR Comments",
+                "🤖 Agent Swarm Logs",
                 "🎓 Learned Calibration",
             ])
 
-            with tab1:
+            with tabs[0]:
                 st.markdown("### Executive Summary")
                 st.info(report.executive_summary)
                 
@@ -163,14 +186,14 @@ if run_button:
                 with bcol2:
                     agent_prompt_data = GitProvider.format_agent_rectification_prompt(report)
                     st.download_button(
-                        label="🤖 Download Agent Fix Prompt (.md)",
+                        label="🤖 Download Agent Rectification Plan (.md)",
                         data=agent_prompt_data,
                         file_name="agent_rectification.md",
                         mime="text/markdown",
                         use_container_width=True,
                     )
 
-            with tab2:
+            with tabs[1]:
                 if not report.issues:
                     st.success("✨ No issues detected under the current severity threshold!")
                 else:
@@ -192,7 +215,7 @@ if run_button:
                             if issue.code_snippet:
                                 st.code(issue.code_snippet)
 
-            with tab3:
+            with tabs[2]:
                 if not report.patches:
                     st.info("No auto-fix patches available.")
                 else:
@@ -208,7 +231,7 @@ if run_button:
                             key=f"patch_{j}",
                         )
 
-            with tab4:
+            with tabs[3]:
                 if not report.generated_tests:
                     st.info("No regression tests proposed.")
                 else:
@@ -217,14 +240,27 @@ if run_button:
                         st.caption(test.description)
                         st.code(test.test_code, language="python")
 
-            with tab5:
+            with tabs[4]:
+                st.markdown("### 💬 Live PR Comments & Bot Discussions")
+                if not pr_url:
+                    st.info("Paste a GitHub PR URL in the input section to view live GitHub bot review comments and history.")
+                elif not pr_existing_comments:
+                    st.success("No previous review comments found on this PR.")
+                else:
+                    for c in pr_existing_comments:
+                        icon = "🤖" if c["is_bot"] else "👤"
+                        with st.chat_message(name=c["author"], avatar=icon):
+                            st.caption(f"**{c['author']}** commented at `{c['created_at']}`:")
+                            st.markdown(c["body"])
+
+            with tabs[5]:
                 for agent_res in report.agent_results:
                     st.markdown(f"### {agent_res.agent_name} (*{agent_res.agent_role}*)")
                     st.markdown(f"> {agent_res.summary}")
                     st.write(f"- Issues detected: {len(agent_res.issues)}")
                     st.markdown("---")
 
-            with tab6:
+            with tabs[6]:
                 st.markdown("### 🧠 Learned (Negative ➔ Positive) Calibration Case Studies")
                 st.caption("These lessons are dynamically injected into agent prompts to eliminate repeat errors.")
                 from pr_sentinel.core.reflection_engine import mistake_memory
@@ -239,4 +275,3 @@ if run_button:
 
         except Exception as e:
             st.error(f"Error executing swarm review: {e}")
-
