@@ -64,9 +64,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY || secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          LLM_MODEL: ${{ vars.LLM_MODEL || 'gemini/gemini-1.5-flash' }}
+          LLM_MODEL: ${{ vars.LLM_MODEL || '' }}
         run: |
           if [ "${{ steps.pr_info.outputs.is_fix_command }}" = "true" ]; then
             echo "Executing Auto-Fix Patch Commit directly to PR branch..."
