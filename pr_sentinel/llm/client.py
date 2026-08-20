@@ -45,7 +45,14 @@ class LLMClient:
         # Candidate model names to try in order if the primary model throws 404 Not Found
         candidate_models = [self.model]
         if "gemini" in self.model:
-            for alt in ["gemini/gemini-1.5-flash-latest", "gemini/gemini-1.5-flash", "gemini/gemini-pro", "gemini/gemini-2.0-flash", "gemini/gemini-1.5-pro"]:
+            for alt in [
+                "gemini/gemini-1.5-flash-002",
+                "gemini/gemini-1.5-flash-latest",
+                "gemini/gemini-2.0-flash",
+                "gemini/gemini-1.5-flash",
+                "gemini/gemini-pro",
+                "gemini/gemini-1.5-pro-002",
+            ]:
                 if alt not in candidate_models:
                     candidate_models.append(alt)
 
