@@ -55,14 +55,13 @@ class LLMClient:
                 target_model = "gpt-4o-mini"
                 os.environ["OPENAI_API_KEY"] = api_k
 
-        # Candidate model names to try in order if the primary model throws 404 Not Found
+        # Candidate model names to try in order if the primary model throws 404 or decommissioned error
         candidate_models = [target_model]
         if "groq" in target_model:
             for alt in [
                 "groq/llama-3.1-8b-instant",
-                "groq/llama3-70b-8192",
-                "groq/llama3-8b-8192",
                 "groq/mixtral-8x7b-32768",
+                "groq/gemma2-9b-it",
             ]:
                 if alt not in candidate_models:
                     candidate_models.append(alt)
@@ -87,10 +86,14 @@ class LLMClient:
                 )
                 self.model = m  # Keep the working model
                 return response.choices[0].message.content or ""
-            except litellm.NotFoundError as nf:
+            except (litellm.NotFoundError, litellm.BadRequestError) as nf:
                 last_error = nf
                 continue
             except Exception as e:
+                # If error message mentions model decommissioned or not found, try next candidate
+                if "model" in str(e).lower() and ("not found" in str(e).lower() or "decommissioned" in str(e).lower()):
+                    last_error = e
+                    continue
                 raise e
 
         if last_error:
