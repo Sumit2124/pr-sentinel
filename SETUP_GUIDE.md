@@ -55,7 +55,7 @@ pr-sentinel sample
 2. Push your local repository:
    ```bash
    cd "/Users/sumit/Documents/AI PROJECTS/pr-sentinel"
-   git remote add origin https://github.com/<YOUR_GITHUB_USERNAME>/pr-sentinel.git
+   git remote add origin https://github.com/Sumit2124/pr-sentinel.git
    git push -u origin main
    ```
 

@@ -79,7 +79,7 @@ flowchart TD
 
 ```bash
 # Clone repository
-git clone https://github.com/your-username/pr-sentinel.git
+git clone https://github.com/Sumit2124/pr-sentinel.git
 cd pr-sentinel
 
 # Create virtual environment
@@ -211,7 +211,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install PR-Sentinel
-        run: pip install git+https://github.com/your-username/pr-sentinel.git
+        run: pip install git+https://github.com/Sumit2124/pr-sentinel.git
 
       - name: Run Review or Auto-Fix
         env:

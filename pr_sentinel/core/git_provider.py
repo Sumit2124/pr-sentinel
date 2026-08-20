@@ -221,7 +221,7 @@ class GitProvider:
         lines.append("---")
         lines.append("💡 **Auto-Fix Option**: Reply with `/sentinel fix` on this PR to automatically apply and commit all recommended patches directly to this branch.")
         lines.append("")
-        lines.append("*Generated automatically by [PR-Sentinel](https://github.com/your-username/pr-sentinel) multi-agent code analysis.*")
+        lines.append("*Generated automatically by [PR-Sentinel](https://github.com/Sumit2124/pr-sentinel) multi-agent code analysis.*")
         return "\n".join(lines)
 
     def commit_fixes_to_pr(self, pr_url: str, report: PRReviewReport) -> Dict[str, Any]:
