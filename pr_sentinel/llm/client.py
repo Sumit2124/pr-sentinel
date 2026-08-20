@@ -46,7 +46,7 @@ class LLMClient:
         target_model = self.model
         if api_k:
             if api_k.startswith("gsk_"):
-                target_model = "groq/llama-3.3-70b-versatile"
+                target_model = "groq/llama-3.1-8b-instant"
                 os.environ["GROQ_API_KEY"] = api_k
             elif api_k.startswith("sk-or-"):
                 target_model = "openrouter/meta-llama/llama-3.3-70b-instruct"
@@ -57,7 +57,16 @@ class LLMClient:
 
         # Candidate model names to try in order if the primary model throws 404 Not Found
         candidate_models = [target_model]
-        if "gemini" in target_model:
+        if "groq" in target_model:
+            for alt in [
+                "groq/llama-3.1-8b-instant",
+                "groq/llama3-70b-8192",
+                "groq/llama3-8b-8192",
+                "groq/mixtral-8x7b-32768",
+            ]:
+                if alt not in candidate_models:
+                    candidate_models.append(alt)
+        elif "gemini" in target_model:
             for alt in [
                 "gemini/gemini-1.5-flash",
                 "gemini/gemini-1.5-flash-latest",
