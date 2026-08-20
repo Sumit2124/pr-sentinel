@@ -92,7 +92,7 @@ class LLMClient:
         # Priority 1: Explicit GROQ_API_KEY
         groq_key = os.environ.get("GROQ_API_KEY")
         if groq_key and groq_key.startswith("gsk_"):
-            return groq_key, "groq/llama-3.1-8b-instant"
+            return groq_key, "groq/gpt-oss-20b"
 
         # Priority 2: Explicit OPENAI_API_KEY
         openai_key = os.environ.get("OPENAI_API_KEY")
@@ -109,7 +109,7 @@ class LLMClient:
         if gemini_key:
             if gemini_key.startswith("gsk_"):
                 os.environ["GROQ_API_KEY"] = gemini_key
-                return gemini_key, "groq/llama-3.1-8b-instant"
+                return gemini_key, "groq/gpt-oss-20b"
             if gemini_key.startswith("sk-") and not gemini_key.startswith("sk-live"):
                 os.environ["OPENAI_API_KEY"] = gemini_key
                 return gemini_key, "gpt-4o-mini"
@@ -126,12 +126,10 @@ class LLMClient:
         import urllib.request
         import urllib.error
         preferred_order = [
-            "llama-3.1-8b-instant",
+            "gpt-oss-20b",
             "llama-3.3-70b-versatile",
-            "llama-3.3-70b-specdec",
             "llama-4-scout-17b-16e-instruct",
-            "mixtral-8x7b-32768",
-            "gemma2-9b-it",
+            "llama-3.3-70b-specdec",
         ]
         try:
             req = urllib.request.Request(
