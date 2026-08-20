@@ -1,6 +1,6 @@
 import os
 import subprocess
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from git import Repo, InvalidGitRepositoryError
 from github import Github, Auth
 from pr_sentinel.config import settings
