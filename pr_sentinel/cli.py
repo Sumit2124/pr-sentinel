@@ -293,7 +293,7 @@ index 0000000..e69de29
 +import sqlite3
 +import os
 +
-+ADMIN_SECRET_KEY = "sk-live-93821093810293810293"
++ADMIN_SECRET_KEY = "dummy-secret-key-live-938210938102"
 +
 +def get_user_profile(username):
 +    conn = sqlite3.connect("users.db")
