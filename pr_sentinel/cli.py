@@ -308,11 +308,11 @@ index 0000000..e69de29
 +    with open("/data/uploads/" + file_path, "r") as f:
 +        return f.read()
 +"""
-+    console.print(Panel("[bold yellow]Running PR-Sentinel Swarm on a sample buggy diff containing SQL Injection, Hardcoded Secret, and Path Traversal...[/]"))
-+    diff_ctx = DiffParser.parse_diff(sample_diff, pr_title="Add Auth & File Endpoints")
-+    lead_agent = LeadReviewerAgent()
-+    report = lead_agent.review_pr(diff_ctx)
-+    display_report_rich(report)
+    console.print(Panel("[bold yellow]Running PR-Sentinel Swarm on a sample buggy diff containing SQL Injection, Hardcoded Secret, and Path Traversal...[/]"))
+    diff_ctx = DiffParser.parse_diff(sample_diff, pr_title="Add Auth & File Endpoints")
+    lead_agent = LeadReviewerAgent()
+    report = lead_agent.review_pr(diff_ctx)
+    display_report_rich(report)
 
 
 # Mistakes & Learned Guardrails Sub-Commands
