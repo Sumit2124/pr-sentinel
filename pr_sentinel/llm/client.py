@@ -40,18 +40,29 @@ class LLMClient:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        api_k = self.api_key or settings.gemini_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("OPENAI_API_KEY")
-        
+        # Auto-detect provider from key format if needed
+        api_k = self.api_key or settings.gemini_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("OPENAI_API_KEY") or os.environ.get("GROQ_API_KEY") or os.environ.get("OPENROUTER_API_KEY")
+
+        target_model = self.model
+        if api_k:
+            if api_k.startswith("gsk_"):
+                target_model = "groq/llama-3.3-70b-versatile"
+                os.environ["GROQ_API_KEY"] = api_k
+            elif api_k.startswith("sk-or-"):
+                target_model = "openrouter/meta-llama/llama-3.3-70b-instruct"
+                os.environ["OPENROUTER_API_KEY"] = api_k
+            elif api_k.startswith("sk-") and not api_k.startswith("sk-live"):
+                target_model = "gpt-4o-mini"
+                os.environ["OPENAI_API_KEY"] = api_k
+
         # Candidate model names to try in order if the primary model throws 404 Not Found
-        candidate_models = [self.model]
-        if "gemini" in self.model:
+        candidate_models = [target_model]
+        if "gemini" in target_model:
             for alt in [
-                "gemini/gemini-1.5-flash-002",
+                "gemini/gemini-1.5-flash",
                 "gemini/gemini-1.5-flash-latest",
                 "gemini/gemini-2.0-flash",
-                "gemini/gemini-1.5-flash",
                 "gemini/gemini-pro",
-                "gemini/gemini-1.5-pro-002",
             ]:
                 if alt not in candidate_models:
                     candidate_models.append(alt)
