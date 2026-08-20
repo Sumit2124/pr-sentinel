@@ -41,13 +41,34 @@ class LLMClient:
         messages.append({"role": "user", "content": prompt})
 
         api_k = self.api_key or settings.gemini_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("OPENAI_API_KEY")
-        response = litellm.completion(
-            model=self.model,
-            messages=messages,
-            temperature=self.temperature,
-            api_key=api_k,
-        )
-        return response.choices[0].message.content or ""
+        
+        # Candidate model names to try in order if the primary model throws 404 Not Found
+        candidate_models = [self.model]
+        if "gemini" in self.model:
+            for alt in ["gemini/gemini-1.5-flash-latest", "gemini/gemini-1.5-flash", "gemini/gemini-pro", "gemini/gemini-2.0-flash", "gemini/gemini-1.5-pro"]:
+                if alt not in candidate_models:
+                    candidate_models.append(alt)
+
+        last_error = None
+        for m in candidate_models:
+            try:
+                response = litellm.completion(
+                    model=m,
+                    messages=messages,
+                    temperature=self.temperature,
+                    api_key=api_k,
+                )
+                self.model = m  # Keep the working model
+                return response.choices[0].message.content or ""
+            except litellm.NotFoundError as nf:
+                last_error = nf
+                continue
+            except Exception as e:
+                raise e
+
+        if last_error:
+            raise last_error
+        return ""
 
     def complete_structured(
         self,
