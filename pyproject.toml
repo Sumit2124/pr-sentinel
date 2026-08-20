@@ -7,7 +7,7 @@ name = "pr-sentinel"
 version = "0.1.0"
 description = "Multi-Agent AI Code Reviewer & PR Auto-Fixer Bot"
 readme = "README.md"
-authors = [{ name = "AI Projects Contributor" }]
+authors = [{ name = "Sumit" }]
 license = { text = "MIT" }
 requires-python = ">=3.10"
 dependencies = [
@@ -31,3 +31,8 @@ dev = [
 
 [project.scripts]
 pr-sentinel = "pr_sentinel.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pr_sentinel*"]
+exclude = ["eval*", "tests*", "examples*"]
