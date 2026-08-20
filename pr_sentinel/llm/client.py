@@ -60,7 +60,7 @@ class LLMClient:
         if "groq" in target_model:
             for alt in [
                 "groq/llama-3.1-8b-instant",
-                "groq/llama-3.3-70b-versatile",
+                "groq/llama-3.1-70b-versatile",
             ]:
                 if alt not in candidate_models:
                     candidate_models.append(alt)
