@@ -40,11 +40,12 @@ class LLMClient:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
+        api_k = self.api_key or settings.gemini_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("OPENAI_API_KEY")
         response = litellm.completion(
             model=self.model,
             messages=messages,
             temperature=self.temperature,
-            api_key=self.api_key,
+            api_key=api_k,
         )
         return response.choices[0].message.content or ""
 
@@ -62,6 +63,7 @@ class LLMClient:
             raw_text = self.complete(prompt, system_prompt=enhanced_system)
             return self._extract_json(raw_text)
         except Exception as e:
+            print(f"[PR-Sentinel LLM] Warning: LLM completion error ({type(e).__name__}): {e}")
             if mock_fallback is not None:
                 return mock_fallback
             raise RuntimeError(f"Failed LLM structured generation: {e}")
